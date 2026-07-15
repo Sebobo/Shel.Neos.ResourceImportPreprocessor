@@ -70,9 +70,8 @@ class ResizeImageResourceProcessor implements ResourceProcessorInterface
 
             $image->resize(new Box($newWidth, $newHeight));
             // TODO: Do we need additional options like quality, from configuration?
-            $image = $image->save($path);
-
-            return $image ? $path : false;
+            $image->save($path);
+            return $path;
         } catch (\Throwable) {
             return false;
         }

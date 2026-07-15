@@ -34,13 +34,22 @@ final class ReplaceSpecialCharsFilenameProcessor implements FilenameProcessorInt
         if (!$this->pattern || !$filename) {
             return $filename;
         }
-        $filename = Normalizer::normalize($filename, Normalizer::FORM_C);
-        $filename = preg_replace($this->pattern, $this->replacement, $filename);
-        $filename = preg_replace('/' . $this->replacement . '+/', $this->replacement, $filename);
-        $filename = trim($filename, '.-_');
-        if (empty($filename)) {
-            $filename = 'file_' . time();
+        $processedFilename = Normalizer::normalize($filename, Normalizer::FORM_C);
+        if (!$processedFilename) {
+            return $filename;
         }
-        return $filename;
+        $processedFilename = preg_replace($this->pattern, $this->replacement, $processedFilename);
+        if (!is_string($processedFilename)) {
+            return $filename;
+        }
+        $processedFilename = preg_replace('/' . $this->replacement . '+/', $this->replacement, $processedFilename);
+        if (!is_string($processedFilename)) {
+            return $filename;
+        }
+        $processedFilename = trim($processedFilename, '.-_');
+        if (empty($processedFilename)) {
+            $processedFilename = 'file_' . time();
+        }
+        return $processedFilename;
     }
 }

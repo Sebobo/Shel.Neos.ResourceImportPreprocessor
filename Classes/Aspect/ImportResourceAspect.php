@@ -42,7 +42,7 @@ class ImportResourceAspect
     protected ?array $resourceProcessors = [];
 
     /** @var array<string, true> */
-    protected ?array $processedResourcePaths = [];
+    protected array $processedResourcePaths = [];
 
     /**
      * This aspect modifies the filename of a persistent resource when it is set. F.e. during import.
@@ -71,10 +71,12 @@ class ImportResourceAspect
         /** @var string $collectionName */
         $collectionName = $joinPoint->getMethodArgument('collectionName');
         if ($collectionName !== ResourceManager::DEFAULT_PERSISTENT_COLLECTION_NAME) {
-            return $joinPoint->getAdviceChain()->proceed($joinPoint);
+            /** @var PersistentResource $result */
+            $result = $joinPoint->getAdviceChain()->proceed($joinPoint);
+            return $result;
         }
 
-        /** @var string|resource $source */
+        /** @var string $source */
         $source = $joinPoint->getMethodArgument('source');
         try {
             $processedResourcePath = $this->processResourceSource($source);
@@ -86,7 +88,9 @@ class ImportResourceAspect
         } catch (\Throwable) {
             // Processing failed — import the original resource unchanged
         }
-        return $joinPoint->getAdviceChain()->proceed($joinPoint);
+        /** @var PersistentResource $result */
+        $result = $joinPoint->getAdviceChain()->proceed($joinPoint);
+        return $result;
     }
 
     #[Flow\After('setting(Shel.Neos.ResourceImportPreprocessor.processResources.enabled) && method(Neos\Flow\ResourceManagement\ResourceManager->importUploadedResource())')]
@@ -104,6 +108,7 @@ class ImportResourceAspect
      */
     private function processFilename(string $filename): string
     {
+        /** @var array<string, null|array{class: string, options?: array<string, mixed>}> $sortedProcessors */
         $sortedProcessors = (new PositionalArraySorter($this->filenameProcessors ?? []))->toArray();
         if (!$sortedProcessors) {
             return $filename;
@@ -111,7 +116,10 @@ class ImportResourceAspect
 
         // Instantiate each configured processor
         /** @var FilenameProcessorInterface[] $processorInstances */
-        $processorInstances = array_reduce($sortedProcessors, function (array $carry, array $processorConfig) {
+        $processorInstances = array_reduce($sortedProcessors, function (array $carry, array|null $processorConfig) {
+            if ($processorConfig === null) {
+                return $carry;
+            }
             try {
                 $processorInstance = $this->objectManager->get($processorConfig['class']);
                 if ($processorInstance instanceof FilenameProcessorInterface) {
@@ -133,8 +141,13 @@ class ImportResourceAspect
     /**
      * Calls the registered resource processors on the resource content.
      */
-    private function processResourceSource($source): string|false
+    private function processResourceSource(mixed $source): string|false
     {
+        if (!is_string($source) && !is_resource($source)) {
+            return false;
+        }
+
+        /** @var array<string, null|array{class: string, options?: array<string, mixed>}> $sortedProcessors */
         $sortedProcessors = (new PositionalArraySorter($this->resourceProcessors ?? []))->toArray();
         if (!$sortedProcessors) {
             return false;
@@ -142,7 +155,10 @@ class ImportResourceAspect
 
         // Instantiate each configured processor
         /** @var ResourceProcessorInterface[] $processorInstances */
-        $processorInstances = array_reduce($sortedProcessors, function (array $carry, array $processorConfig) {
+        $processorInstances = array_reduce($sortedProcessors, function (array $carry, array|null $processorConfig) {
+            if ($processorConfig === null) {
+                return $carry;
+            }
             try {
                 $processorInstance = $this->objectManager->get($processorConfig['class']);
                 if ($processorInstance instanceof ResourceProcessorInterface) {
@@ -164,6 +180,10 @@ class ImportResourceAspect
                     ->getPathToTemporaryDirectory() . 'resource_preprocessor_' . Algorithms::generateRandomString(13);
             file_put_contents($temporaryTargetPathAndFilename, $content);
             $pathToProcess = $temporaryTargetPathAndFilename;
+        }
+
+        if (!is_string($pathToProcess)) {
+            return false;
         }
 
         // Execute each processor

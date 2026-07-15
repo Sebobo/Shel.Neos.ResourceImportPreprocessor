@@ -9,6 +9,9 @@ namespace Shel\Neos\ResourceImportPreprocessor\Processor;
  */
 interface ResourceProcessorInterface
 {
+    /**
+     * @param array<string, mixed> $options
+     */
     public function setOptions(array $options = []): self;
 
     /**
