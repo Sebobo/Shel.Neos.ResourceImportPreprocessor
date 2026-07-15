@@ -4,7 +4,7 @@ Shel:
       processFilenames:
         enabled: true
         processors:
-          'replaceWhitespace':
+          'replaceSpecialChars':
             class: 'Shel\Neos\ResourceImportPreprocessor\Processor\ReplaceSpecialCharsFilenameProcessor'
             options:
               # By default, we only keep: a-zA-Z0-9, dot (.), dash (-), and underscore (_)
@@ -13,7 +13,7 @@ Shel:
       processResources:
         enabled: true
         processors:
-          'resize':
+          'resizeImages':
             class: 'Shel\Neos\ResourceImportPreprocessor\Processor\ResizeImageResourceProcessor'
             options:
               # Scales all uploaded images to these dimensions (in px) but keeps the aspect ratio

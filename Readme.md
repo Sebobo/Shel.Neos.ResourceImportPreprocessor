@@ -20,7 +20,7 @@ Shel:
       processFilenames:
         enabled: true
         processors:
-          'replaceWhitespace':
+          'replaceSpecialChars':
             class: 'Shel\Neos\ResourceImportPreprocessor\Processor\ReplaceSpecialCharsFilenameProcessor'
             options:
               # Regex pattern for characters to replace (default: replaces everything except a-zA-Z0-9._-)
@@ -30,12 +30,11 @@ Shel:
       processResources:
         enabled: true
         processors:
-          'resize':
+          'resizeImages':
             class: 'Shel\Neos\ResourceImportPreprocessor\Processor\ResizeImageResourceProcessor'
             options:
-              # Maximum width in pixels (images exceeding this will be scaled down, aspect ratio is preserved)
+              # Maximum width & height in pixels (images exceeding this will be scaled down, aspect ratio is preserved)
               maxWidth: 1920
-              # Maximum height in pixels (images exceeding this will be scaled down, aspect ratio is preserved)
               maxHeight: 1920
 ```
 
@@ -76,7 +75,7 @@ Shel:
       processFilenames:
         enabled: true
         processors:
-          'replaceWhitespace': ~
+          'replaceSpecialChars': ~
 ```
 
 A whole processor group can be disabled by setting `enabled` to `false`:
