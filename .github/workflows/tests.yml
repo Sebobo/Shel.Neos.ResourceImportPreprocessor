@@ -64,8 +64,8 @@ jobs:
       - name: Register package and regenerate autoloader
         working-directory: neos-base-distribution
         run: |
-          composer config --no-plugins repositories.shel-crosscontentrepo path Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
-          composer require --no-interaction --no-progress shel/neos-resource-import-preprocessor
+          composer config --no-plugins repositories.shel-resource-import path Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
+          composer require --no-interaction --no-progress shel/neos-resource-import-preprocessor:@dev
 
       - name: PHPStan analysis
         working-directory: neos-base-distribution/Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
