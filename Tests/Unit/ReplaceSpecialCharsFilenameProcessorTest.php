@@ -4,38 +4,48 @@ declare(strict_types=1);
 
 namespace Shel\Neos\ResourceImportPreprocessor\Tests\Unit;
 
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Shel\Neos\ResourceImportPreprocessor\Processor\SimpleFilenameProcessor;
+use Shel\Neos\ResourceImportPreprocessor\Processor\ReplaceSpecialCharsFilenameProcessor;
 
-class SimpleFilenameProcessorTest extends TestCase
+class ReplaceSpecialCharsFilenameProcessorTest extends TestCase
 {
-    private SimpleFilenameProcessor $subject;
+    private ReplaceSpecialCharsFilenameProcessor $subject;
 
     protected function setUp(): void
     {
-        $this->subject = new SimpleFilenameProcessor();
+        $this->subject = (new ReplaceSpecialCharsFilenameProcessor())
+            ->setOptions(
+                ['pattern' => '/[^a-zA-Z0-9._-]/', 'replacement' => '_']
+            );
     }
 
-    #[Test]
+    /**
+     * @test
+     */
     public function replacesSpacesWithUnderscores(): void
     {
         self::assertSame('my_document', $this->subject->process('my document'));
     }
 
-    #[Test]
+    /**
+     * @test
+     */
     public function returnsFilenameUnchangedWhenNoSpaces(): void
     {
         self::assertSame('document.pdf', $this->subject->process('document.pdf'));
     }
 
-    #[Test]
+    /**
+     * @test
+     */
     public function handlesMultipleSpaces(): void
     {
         self::assertSame('a_b_c', $this->subject->process('a b c'));
     }
 
-    #[Test]
+    /**
+     * @test
+     */
     public function handlesEmptyString(): void
     {
         self::assertSame('', $this->subject->process(''));

@@ -14,11 +14,12 @@ jobs:
       matrix:
         phpVersion:
           - '8.2'
-        neosVersion:
+        flowVersion:
           - '8.3'
-          - '9.1'
+          - '8.4'
+#          - '9.1'
 
-    name: 'Quality - Neos ${{ matrix.neosVersion }}'
+    name: 'Quality - Flow ${{ matrix.flowVersion }}'
 
     steps:
       - name: Checkout package
@@ -26,12 +27,12 @@ jobs:
         with:
           path: package
 
-      - name: Checkout Neos base distribution
+      - name: Checkout Flow base distribution
         uses: actions/checkout@v3
         with:
-          repository: neos/neos-base-distribution
-          ref: ${{ matrix.neosVersion }}
-          path: neos-base-distribution
+          repository: neos/flow-base-distribution
+          ref: ${{ matrix.flowVersion }}
+          path: flow-base-distribution
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -47,30 +48,30 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ matrix.neosVersion }}-${{ hashFiles('neos-base-distribution/composer.json') }}
-          restore-keys: ${{ runner.os }}-composer-${{ matrix.neosVersion }}-
+          key: ${{ runner.os }}-composer-flow-${{ matrix.flowVersion }}-${{ hashFiles('flow-base-distribution/composer.json') }}
+          restore-keys: ${{ runner.os }}-composer-flow-${{ matrix.flowVersion }}-
 
       - name: Copy package into distribution
         run: |
-          mkdir -p neos-base-distribution/Packages/Plugins
-          cp -R "$GITHUB_WORKSPACE/package" neos-base-distribution/Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
+          mkdir -p flow-base-distribution/Packages/Plugins
+          cp -R "$GITHUB_WORKSPACE/package" flow-base-distribution/Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
 
       - name: Install dependencies
-        working-directory: neos-base-distribution
+        working-directory: flow-base-distribution
         run: |
           composer config --no-plugins allow-plugins.neos/composer-plugin true
           composer install --no-interaction --no-progress
 
       - name: Register package and regenerate autoloader
-        working-directory: neos-base-distribution
+        working-directory: flow-base-distribution
         run: |
           composer config --no-plugins repositories.shel-resource-import path Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
           composer require --no-interaction --no-progress shel/neos-resource-import-preprocessor:@dev
 
       - name: PHPStan analysis
-        working-directory: neos-base-distribution/Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
+        working-directory: flow-base-distribution/Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
         run: phpstan analyse -c phpstan.neon --no-progress
 
       - name: PHPUnit tests
-        working-directory: neos-base-distribution/Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
+        working-directory: flow-base-distribution/Packages/Plugins/Shel.Neos.ResourceImportPreprocessor
         run: phpunit -c phpunit.xml

@@ -1,7 +1,21 @@
 Shel:
   Neos:
     ResourceImportPreprocessor:
-      adjustFilename:
+      processFilenames:
         enabled: true
-      autoScale:
+        processors:
+          'replaceWhitespace':
+            class: 'Shel\Neos\ResourceImportPreprocessor\Processor\ReplaceSpecialCharsFilenameProcessor'
+            options:
+              # By default, we only keep: a-zA-Z0-9, dot (.), dash (-), and underscore (_)
+              pattern: '/[^a-zA-Z0-9._-]/'
+              replacement: '-'
+      processResources:
         enabled: true
+        processors:
+          'resize':
+            class: 'Shel\Neos\ResourceImportPreprocessor\Processor\ResizeImageResourceProcessor'
+            options:
+              # Scales all uploaded images to these dimensions (in px) but keeps the aspect ratio
+              maxWidth: 1920
+              maxHeight: 1920
