@@ -5,7 +5,7 @@
     "license": "MIT",
     "require": {
         "php": ">=8.2",
-        "neos/neos": "^8.3 || ^9.0",
+        "neos/flow": "^8.3 || ^9.0",
         "neos/neos-ui": "^8.3.15 || ^9.0"
     },
     "require-dev": {
