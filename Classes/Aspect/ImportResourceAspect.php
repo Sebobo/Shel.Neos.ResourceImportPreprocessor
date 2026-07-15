@@ -7,6 +7,7 @@ use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Aop\JoinPointInterface;
 use Neos\Flow\ObjectManagement\ObjectManagerInterface;
 use Neos\Utility\Unicode\Functions as UnicodeFunctions;
+use Shel\Neos\ResourceImportPreprocessor\Processor\FilenameProcessorInterface;
 use Symfony\Polyfill\Intl\Normalizer\Normalizer;
 
 /**
@@ -18,17 +19,24 @@ class ImportResourceAspect
     #[Flow\Inject]
     protected ObjectManagerInterface $objectManager;
 
+    /**
+     * This aspect modifies the filename of a persistent resource when it is set. F.e. during import.
+     */
     #[Flow\Around('setting(Shel.Neos.ResourceImportPreprocessor.adjustFilename.enabled) && method(Neos\Flow\ResourceManagement\PersistentResource->setFilename())')]
-    public function processFilenameOnImport(JoinPointInterface $joinPoint): void
+    public function processFilenameWhenSet(JoinPointInterface $joinPoint): void
     {
         $filename = $joinPoint->getMethodArgument('filename');
-
-        $pathInfo = UnicodeFunctions::pathinfo($filename);
-        $extension = (isset($pathInfo['extension']) ? '.' . strtolower($pathInfo['extension']) : '');
-        $newFilename = $this->processFilename($pathInfo['filename']) . $extension;
-
-        // Replace the filename given to the original method with the new one
-        $joinPoint->setMethodArgument('filename', $newFilename);
+        if (is_string($filename)) {
+            $pathInfo = UnicodeFunctions::pathinfo($filename);
+            $extension = $pathInfo['extension'] ?? '';
+            $extension = (is_string($extension) ? '.' . strtolower($extension) : '');
+            $filename = $pathInfo['filename'] ?? '';
+            if (is_string($filename)) {
+                $newFilename = $this->processFilename($filename) . $extension;
+                // Replace the filename given to the original method with the new one
+                $joinPoint->setMethodArgument('filename', $newFilename);
+            }
+        }
 
         $joinPoint->getAdviceChain()->proceed($joinPoint);
     }
@@ -40,7 +48,8 @@ class ImportResourceAspect
     private function processFilename(string $filename): string
     {
         $normalizedFilename = Normalizer::normalize($filename, Normalizer::FORM_C);
-        $filenameProcessor = $this->objectManager->get('Shel\Neos\ResourceImportPreprocessor\Processor\FilenameProcessorInterface');
-        return $filenameProcessor->process($normalizedFilename);
+        /** @var FilenameProcessorInterface $filenameProcessor */
+        $filenameProcessor = $this->objectManager->get(FilenameProcessorInterface::class);
+        return $filenameProcessor->process(is_string($normalizedFilename) ? $normalizedFilename : $filename);
     }
 }
