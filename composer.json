@@ -1,0 +1,28 @@
+{
+    "name": "shel/neos-resource-import-preprocessor",
+    "description": "Neos Ui plugin to preprocess resource during import",
+    "type": "neos-plugin",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.2",
+        "neos/neos": "^8.3 || ^9.0",
+        "neos/neos-ui": "^8.3.15 || ^9.0"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^1.10"
+    },
+    "scripts": {
+        "phpstan": "phpstan analyse -c phpstan.neon",
+        "test": "phpunit -c phpunit.xml"
+    },
+    "autoload": {
+        "psr-4": {
+            "Shel\\Neos\\ResourceImportPreprocessor\\": "Classes"
+        }
+    },
+    "extra": {
+        "neos": {
+            "package-key": "Shel.Neos.ResourceImportPreprocessor"
+        }
+    }
+}

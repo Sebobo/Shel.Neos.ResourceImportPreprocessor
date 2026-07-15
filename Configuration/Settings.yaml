@@ -1,0 +1,7 @@
+Shel:
+  Neos:
+    ResourceImportPreprocessor:
+      adjustFilename:
+        enabled: true
+      autoScale:
+        enabled: true
