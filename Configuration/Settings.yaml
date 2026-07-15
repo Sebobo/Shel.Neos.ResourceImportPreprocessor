@@ -5,3 +5,5 @@ Shel:
         enabled: true
       autoScale:
         enabled: true
+        maxWidth: 1920
+        maxHeight: 1920

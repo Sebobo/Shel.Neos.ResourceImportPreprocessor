@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Shel\Neos\ResourceImportPreprocessor\Tests\Unit;
 
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Shel\Neos\ResourceImportPreprocessor\Processor\SimpleFilenameProcessor;
 
@@ -17,25 +16,33 @@ class SimpleFilenameProcessorTest extends TestCase
         $this->subject = new SimpleFilenameProcessor();
     }
 
-    #[Test]
+    /**
+     * @test
+     */
     public function replacesSpacesWithUnderscores(): void
     {
         self::assertSame('my_document', $this->subject->process('my document'));
     }
 
-    #[Test]
+    /**
+     * @test
+     */
     public function returnsFilenameUnchangedWhenNoSpaces(): void
     {
         self::assertSame('document.pdf', $this->subject->process('document.pdf'));
     }
 
-    #[Test]
+    /**
+     * @test
+     */
     public function handlesMultipleSpaces(): void
     {
         self::assertSame('a_b_c', $this->subject->process('a b c'));
     }
 
-    #[Test]
+    /**
+     * @test
+     */
     public function handlesEmptyString(): void
     {
         self::assertSame('', $this->subject->process(''));
