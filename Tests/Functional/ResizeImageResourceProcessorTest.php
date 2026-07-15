@@ -7,12 +7,12 @@ namespace Shel\Neos\ResourceImportPreprocessor\Tests\Functional;
 use Imagine\Gd\Imagine;
 use Neos\Flow\Utility\Environment;
 use PHPUnit\Framework\TestCase;
-use Shel\Neos\ResourceImportPreprocessor\Processor\ImageScalerProcessor;
+use Shel\Neos\ResourceImportPreprocessor\Processor\ResizeImageResourceProcessor;
 
 /**
  *
  */
-class ImageScalerProcessorTest extends TestCase
+class ResizeImageResourceProcessorTest extends TestCase
 {
     private string $tempDir;
 
@@ -34,9 +34,10 @@ class ImageScalerProcessorTest extends TestCase
         @rmdir($this->tempDir);
     }
 
-    private function createProcessor(int $maxWidth, int $maxHeight): ImageScalerProcessor
+    private function createProcessor(int $maxWidth = 1920, int $maxHeight = 1080): ResizeImageResourceProcessor
     {
-        $processor = new ImageScalerProcessor($maxWidth, $maxHeight, new Imagine());
+        $processor = (new ResizeImageResourceProcessor())
+            ->setOptions(['maxWidth' => $maxWidth, 'maxHeight' => $maxHeight]);
 
         $environment = $this->createMock(Environment::class);
         $environment->method('getPathToTemporaryDirectory')
@@ -45,6 +46,8 @@ class ImageScalerProcessorTest extends TestCase
         $reflection = new \ReflectionClass($processor);
         $prop = $reflection->getProperty('environment');
         $prop->setValue($processor, $environment);
+        $prop = $reflection->getProperty('imagineService');
+        $prop->setValue($processor, new Imagine());
 
         return $processor;
     }
@@ -74,15 +77,13 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function scalesDownLargePngImage(): void
     {
-        $processor = $this->createProcessor(1920, 1080);
+        $processor = $this->createProcessor();
         $path = $this->createPngImage(3840, 2160);
 
         $result = $processor->process($path);
 
         self::assertIsString($result);
-        $tempOutput = $this->tempDir . '/output_check.png';
-        file_put_contents($tempOutput, $result);
-        $dims = $this->getImageDimensions($tempOutput);
+        $dims = $this->getImageDimensions($result);
 
         self::assertLessThanOrEqual(1920, $dims['width']);
         self::assertLessThanOrEqual(1080, $dims['height']);
@@ -93,15 +94,13 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function maintainsAspectRatioWhenScalingWidth(): void
     {
-        $processor = $this->createProcessor(1920, 1080);
+        $processor = $this->createProcessor();
         $path = $this->createPngImage(3840, 1920);
 
         $result = $processor->process($path);
 
         self::assertIsString($result);
-        $tempOutput = $this->tempDir . '/output_check.png';
-        file_put_contents($tempOutput, $result);
-        $dims = $this->getImageDimensions($tempOutput);
+        $dims = $this->getImageDimensions($result);
 
         $ratio = $dims['width'] / $dims['height'];
         self::assertEqualsWithDelta(2.0, $ratio, 0.01);
@@ -112,7 +111,7 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function returnsSourceUnchangedWhenWithinBounds(): void
     {
-        $processor = $this->createProcessor(1920, 1080);
+        $processor = $this->createProcessor();
         $path = $this->createPngImage(800, 600);
 
         $result = $processor->process($path);
@@ -125,14 +124,14 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function returnsSourceUnchangedForNonImageFile(): void
     {
-        $processor = $this->createProcessor(1920, 1080);
+        $processor = $this->createProcessor();
 
         $path = $this->tempDir . '/document.pdf';
         file_put_contents($path, '%PDF-1.4 fake content');
 
         $result = $processor->process($path);
 
-        self::assertSame($path, $result);
+        self::assertSame(false, $result);
     }
 
     /**
@@ -140,14 +139,14 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function returnsSourceUnchangedForSvgFile(): void
     {
-        $processor = $this->createProcessor(1920, 1080);
+        $processor = $this->createProcessor();
 
         $path = $this->tempDir . '/vector.svg';
         file_put_contents($path, '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="5000" height="5000"><rect width="5000" height="5000" fill="red"/></svg>');
 
         $result = $processor->process($path);
 
-        self::assertSame($path, $result);
+        self::assertSame(false, $result);
     }
 
     /**
@@ -155,7 +154,7 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function processesJpegImage(): void
     {
-        $processor = $this->createProcessor(1920, 1080);
+        $processor = $this->createProcessor();
 
         $path = $this->tempDir . '/source.jpg';
         $image = imagecreatetruecolor(3840, 2160);
@@ -167,9 +166,7 @@ class ImageScalerProcessorTest extends TestCase
         $result = $processor->process($path);
 
         self::assertIsString($result);
-        $tempOutput = $this->tempDir . '/output_check.jpg';
-        file_put_contents($tempOutput, $result);
-        $dims = $this->getImageDimensions($tempOutput);
+        $dims = $this->getImageDimensions($result);
 
         self::assertLessThanOrEqual(1920, $dims['width']);
         self::assertLessThanOrEqual(1080, $dims['height']);
@@ -180,7 +177,7 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function cleansUpTempFilesAfterProcessing(): void
     {
-        $processor = $this->createProcessor(1920, 1080);
+        $processor = $this->createProcessor();
         $path = $this->createPngImage(3840, 2160);
 
         $processor->process($path);
@@ -200,9 +197,7 @@ class ImageScalerProcessorTest extends TestCase
         $result = $processor->process($path);
 
         self::assertIsString($result);
-        $tempOutput = $this->tempDir . '/output_exact.png';
-        file_put_contents($tempOutput, $result);
-        $dims = $this->getImageDimensions($tempOutput);
+        $dims = $this->getImageDimensions($result);
 
         self::assertSame(100, $dims['width']);
         self::assertSame(100, $dims['height']);

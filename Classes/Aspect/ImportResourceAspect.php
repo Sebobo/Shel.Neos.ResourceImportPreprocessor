@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Shel\Neos\ResourceImportPreprocessor\Aspect;
 
-use Doctrine\ORM\Query\AST\Join;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Aop\JoinPointInterface;
 use Neos\Flow\ObjectManagement\ObjectManagerInterface;
@@ -12,10 +11,10 @@ use Neos\Flow\ResourceManagement\PersistentResource;
 use Neos\Flow\ResourceManagement\ResourceManager;
 use Neos\Flow\Utility\Algorithms;
 use Neos\Flow\Utility\Environment;
+use Neos\Utility\PositionalArraySorter;
 use Neos\Utility\Unicode\Functions as UnicodeFunctions;
 use Shel\Neos\ResourceImportPreprocessor\Processor\FilenameProcessorInterface;
 use Shel\Neos\ResourceImportPreprocessor\Processor\ResourceProcessorInterface;
-use Symfony\Polyfill\Intl\Normalizer\Normalizer;
 
 /**
  * This aspect runs during resource import and modifies the resource based on configured processors.
@@ -30,13 +29,25 @@ class ImportResourceAspect
     #[Flow\Inject]
     protected Environment $environment;
 
-    /** @var list<string> */
-    protected array $processedResourcePaths = [];
+    /**
+     * @var FilenameProcessorInterface[]|null
+     */
+    #[Flow\InjectConfiguration('processFilenames.processors', 'Shel.Neos.ResourceImportPreprocessor')]
+    protected ?array $filenameProcessors = [];
+
+    /**
+     * @var ResourceProcessorInterface[]|null
+     */
+    #[Flow\InjectConfiguration('processResources.processors', 'Shel.Neos.ResourceImportPreprocessor')]
+    protected ?array $resourceProcessors = [];
+
+    /** @var array<string, true> */
+    protected ?array $processedResourcePaths = [];
 
     /**
      * This aspect modifies the filename of a persistent resource when it is set. F.e. during import.
      */
-    #[Flow\Around('setting(Shel.Neos.ResourceImportPreprocessor.adjustFilename.enabled) && method(Neos\Flow\ResourceManagement\PersistentResource->setFilename())')]
+    #[Flow\Around('setting(Shel.Neos.ResourceImportPreprocessor.processFilenames.enabled) && method(Neos\Flow\ResourceManagement\PersistentResource->setFilename())')]
     public function processFilenameWhenSet(JoinPointInterface $joinPoint): void
     {
         $filename = $joinPoint->getMethodArgument('filename');
@@ -54,7 +65,7 @@ class ImportResourceAspect
         $joinPoint->getAdviceChain()->proceed($joinPoint);
     }
 
-    #[Flow\Around('setting(Shel.Neos.ResourceImportPreprocessor.autoScale.enabled) && method(Neos\Flow\ResourceManagement\ResourceManager->importResource())')]
+    #[Flow\Around('setting(Shel.Neos.ResourceImportPreprocessor.processResources.enabled) && method(Neos\Flow\ResourceManagement\ResourceManager->importResource())')]
     public function processResourceBeforeImport(JoinPointInterface $joinPoint): PersistentResource
     {
         /** @var string $collectionName */
@@ -65,13 +76,12 @@ class ImportResourceAspect
 
         /** @var string|resource $source */
         $source = $joinPoint->getMethodArgument('source');
-
         try {
             $processedResourcePath = $this->processResourceSource($source);
             if ($processedResourcePath !== false) {
                 $joinPoint->setMethodArgument('source', $processedResourcePath);
-                $this->processedResourcePaths[] = $processedResourcePath;
-                return $joinPoint->getAdviceChain()->proceed($joinPoint);
+                // Store the processed resource path to clean up later
+                $this->processedResourcePaths[$processedResourcePath] = true;
             }
         } catch (\Throwable) {
             // Processing failed — import the original resource unchanged
@@ -79,11 +89,11 @@ class ImportResourceAspect
         return $joinPoint->getAdviceChain()->proceed($joinPoint);
     }
 
-    #[Flow\After('setting(Shel.Neos.ResourceImportPreprocessor.autoScale.enabled) && method(Neos\Flow\ResourceManagement\ResourceManager->importUploadedResource())')]
-    public function processResourceAfterImport(JoinPointInterface $joinPoint): void
+    #[Flow\After('setting(Shel.Neos.ResourceImportPreprocessor.processResources.enabled) && method(Neos\Flow\ResourceManagement\ResourceManager->importUploadedResource())')]
+    public function processResourceAfterImport(): void
     {
         // Clean up temporary files
-        foreach ($this->processedResourcePaths as $processedResourcePath) {
+        foreach (array_keys($this->processedResourcePaths) as $processedResourcePath) {
             @unlink($processedResourcePath);
         }
     }
@@ -94,10 +104,30 @@ class ImportResourceAspect
      */
     private function processFilename(string $filename): string
     {
-        $normalizedFilename = Normalizer::normalize($filename, Normalizer::FORM_C);
-        /** @var FilenameProcessorInterface $filenameProcessor */
-        $filenameProcessor = $this->objectManager->get(FilenameProcessorInterface::class);
-        return $filenameProcessor->process(is_string($normalizedFilename) ? $normalizedFilename : $filename);
+        $sortedProcessors = (new PositionalArraySorter($this->filenameProcessors ?? []))->toArray();
+        if (!$sortedProcessors) {
+            return $filename;
+        }
+
+        // Instantiate each configured processor
+        /** @var FilenameProcessorInterface[] $processorInstances */
+        $processorInstances = array_reduce($sortedProcessors, function (array $carry, array $processorConfig) {
+            try {
+                $processorInstance = $this->objectManager->get($processorConfig['class']);
+                if ($processorInstance instanceof FilenameProcessorInterface) {
+                    $processorInstance->setOptions($processorConfig['options'] ?? []);
+                    $carry[] = $processorInstance;
+                }
+            } catch (\Exception) {
+            }
+            return $carry;
+        }, []);
+
+        $processedFilename = $filename;
+        foreach ($processorInstances as $processor) {
+            $processedFilename = $processor->process($processedFilename);
+        }
+        return $processedFilename;
     }
 
     /**
@@ -105,6 +135,26 @@ class ImportResourceAspect
      */
     private function processResourceSource($source): string|false
     {
+        $sortedProcessors = (new PositionalArraySorter($this->resourceProcessors ?? []))->toArray();
+        if (!$sortedProcessors) {
+            return false;
+        }
+
+        // Instantiate each configured processor
+        /** @var ResourceProcessorInterface[] $processorInstances */
+        $processorInstances = array_reduce($sortedProcessors, function (array $carry, array $processorConfig) {
+            try {
+                $processorInstance = $this->objectManager->get($processorConfig['class']);
+                if ($processorInstance instanceof ResourceProcessorInterface) {
+                    $processorInstance->setOptions($processorConfig['options'] ?? []);
+                    $carry[] = $processorInstance;
+                }
+            } catch (\Exception) {
+            }
+            return $carry;
+        }, []);
+
+        $pathToProcess = $source;
         if (is_resource($source)) {
             $content = stream_get_contents($source);
             if ($content === false) {
@@ -113,15 +163,17 @@ class ImportResourceAspect
             $temporaryTargetPathAndFilename = $this->environment
                     ->getPathToTemporaryDirectory() . 'resource_preprocessor_' . Algorithms::generateRandomString(13);
             file_put_contents($temporaryTargetPathAndFilename, $content);
-            $processor = $this->objectManager->get(ResourceProcessorInterface::class);
-            if (!$processor) {
-                return false;
-            }
-            return $processor->process(
-                $temporaryTargetPathAndFilename
-            );
+            $pathToProcess = $temporaryTargetPathAndFilename;
         }
 
-        return $this->objectManager->get(ResourceProcessorInterface::class)->process($source);
+        // Execute each processor
+        foreach ($processorInstances as $processor) {
+            $result = $processor->process($pathToProcess);
+            if ($result !== false) {
+                $pathToProcess = $result;
+            }
+        }
+
+        return $pathToProcess;
     }
 }

@@ -9,6 +9,8 @@ namespace Shel\Neos\ResourceImportPreprocessor\Processor;
  */
 interface ResourceProcessorInterface
 {
+    public function setOptions(array $options = []): self;
+
     /**
      * Process the resource content and return the modified content.
      * @param string $path the path to the resource file

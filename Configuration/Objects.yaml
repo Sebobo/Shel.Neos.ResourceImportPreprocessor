@@ -1,9 +1,0 @@
-'Shel\Neos\ResourceImportPreprocessor\Processor\FilenameProcessorInterface':
-  className: 'Shel\Neos\ResourceImportPreprocessor\Processor\SimpleFilenameProcessor'
-
-'Shel\Neos\ResourceImportPreprocessor\Processor\ResourceProcessorInterface':
-  className: 'Shel\Neos\ResourceImportPreprocessor\Processor\ImageScalerProcessor'
-  properties:
-    imagineService:
-      object:
-        factoryObjectName: Neos\Imagine\ImagineFactory

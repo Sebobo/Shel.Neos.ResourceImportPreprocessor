@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Shel\Neos\ResourceImportPreprocessor\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
-use Shel\Neos\ResourceImportPreprocessor\Processor\SimpleFilenameProcessor;
+use Shel\Neos\ResourceImportPreprocessor\Processor\ReplaceSpecialCharsFilenameProcessor;
 
-class SimpleFilenameProcessorTest extends TestCase
+class ReplaceSpecialCharsFilenameProcessorTest extends TestCase
 {
-    private SimpleFilenameProcessor $subject;
+    private ReplaceSpecialCharsFilenameProcessor $subject;
 
     protected function setUp(): void
     {
-        $this->subject = new SimpleFilenameProcessor();
+        $this->subject = (new ReplaceSpecialCharsFilenameProcessor())
+            ->setOptions(
+                ['pattern' => '/[^a-zA-Z0-9._-]/', 'replacement' => '_']
+            );
     }
 
     /**

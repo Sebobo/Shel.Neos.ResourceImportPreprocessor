@@ -12,24 +12,26 @@ use Neos\Flow\Utility\Environment;
 /**
  * A resource processor that scales images to a maximum width and height if they exceed it.
  */
-class ImageScalerProcessor implements ResourceProcessorInterface
+class ResizeImageResourceProcessor implements ResourceProcessorInterface
 {
 
-    /**
-     * @var Environment
-     */
     #[Flow\Inject]
-    protected $environment;
+    protected Environment $environment;
 
-    #[Flow\InjectConfiguration(path: 'autoScale.maxWidth', package: 'Shel.Neos.ResourceImportPreprocessor')]
-    protected int $maxWidth;
+    #[Flow\Inject]
+    protected ImagineInterface $imagineService;
 
-    #[Flow\InjectConfiguration(path: 'autoScale.maxHeight', package: 'Shel.Neos.ResourceImportPreprocessor')]
-    protected int $maxHeight;
+    protected int|null $maxWidth = null;
+    protected int|null $maxHeight = null;
 
-    public function __construct(
-        protected ImagineInterface $imagineService,
-    ) {
+    /**
+     * @param array{maxWidth?: int|null, maxHeight?: int|null} $options
+     */
+    public function setOptions(array $options = []): self
+    {
+        $this->maxWidth = $options['maxWidth'] ?? null;
+        $this->maxHeight = $options['maxHeight'] ?? null;
+        return $this;
     }
 
     /**
@@ -51,13 +53,16 @@ class ImageScalerProcessor implements ResourceProcessorInterface
             $image = $this->imagineService->open($path);
             $size = $image->getSize();
 
-            if ($size->getWidth() <= $this->maxWidth && $size->getHeight() <= $this->maxHeight) {
+            $maxWidth = $this->maxWidth ?? $size->getWidth();
+            $maxHeight = $this->maxHeight ?? $size->getHeight();
+
+            if ($size->getWidth() <= $maxWidth && $size->getHeight() <= $maxHeight) {
                 return $path;
             }
 
             $scaleRatio = min(
-                $this->maxWidth / $size->getWidth(),
-                $this->maxHeight / $size->getHeight()
+                $maxWidth / $size->getWidth(),
+                $maxHeight / $size->getHeight()
             );
 
             $newWidth = (int)round($size->getWidth() * $scaleRatio);

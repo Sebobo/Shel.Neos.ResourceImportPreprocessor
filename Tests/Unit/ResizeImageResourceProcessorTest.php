@@ -10,9 +10,9 @@ use Imagine\Image\ImageInterface;
 use Imagine\Image\ImagineInterface;
 use Neos\Flow\Utility\Environment;
 use PHPUnit\Framework\TestCase;
-use Shel\Neos\ResourceImportPreprocessor\Processor\ImageScalerProcessor;
+use Shel\Neos\ResourceImportPreprocessor\Processor\ResizeImageResourceProcessor;
 
-class ImageScalerProcessorTest extends TestCase
+class ResizeImageResourceProcessorTest extends TestCase
 {
     private string $tempDir;
 
@@ -30,9 +30,10 @@ class ImageScalerProcessorTest extends TestCase
         @rmdir($this->tempDir);
     }
 
-    private function createProcessor(int $maxWidth, int $maxHeight, ImagineInterface $imagine): ImageScalerProcessor
+    private function createProcessor(?ImagineInterface $imagineService = null): ResizeImageResourceProcessor
     {
-        $processor = new ImageScalerProcessor($maxWidth, $maxHeight, $imagine);
+        $processor = (new ResizeImageResourceProcessor())
+            ->setOptions(['maxWidth' => 1920, 'maxHeight' => 1080]);
 
         $environment = $this->createMock(Environment::class);
         $environment->method('getPathToTemporaryDirectory')
@@ -41,6 +42,11 @@ class ImageScalerProcessorTest extends TestCase
         $reflection = new \ReflectionClass($processor);
         $prop = $reflection->getProperty('environment');
         $prop->setValue($processor, $environment);
+
+        if ($imagineService !== null) {
+            $prop = $reflection->getProperty('imagineService');
+            $prop->setValue($processor, $imagineService);
+        }
 
         return $processor;
     }
@@ -76,8 +82,7 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function returnsSourceWhenImageIsWithinBounds(): void
     {
-        $imagine = $this->createMockImagine(100, 100);
-        $processor = $this->createProcessor(1920, 1080, $imagine);
+        $processor = $this->createProcessor($this->createMockImagine(100, 100));
 
         $path = $this->createTestImage(100, 100);
         $result = $processor->process($path);
@@ -90,8 +95,7 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function returnsSourceWhenWidthMatchesExactly(): void
     {
-        $imagine = $this->createMockImagine(1920, 500);
-        $processor = $this->createProcessor(1920, 1080, $imagine);
+        $processor = $this->createProcessor($this->createMockImagine(1920, 500));
 
         $path = $this->createTestImage(1920, 500);
         $result = $processor->process($path);
@@ -104,8 +108,7 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function returnsSourceWhenHeightMatchesExactly(): void
     {
-        $imagine = $this->createMockImagine(500, 1080);
-        $processor = $this->createProcessor(1920, 1080, $imagine);
+        $processor = $this->createProcessor($this->createMockImagine(500, 1080));
 
         $path = $this->createTestImage(500, 1080);
         $result = $processor->process($path);
@@ -118,8 +121,7 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function returnsSourceForNonImageFile(): void
     {
-        $imagine = $this->createMockImagine(100, 100);
-        $processor = $this->createProcessor(1920, 1080, $imagine);
+        $processor = $this->createProcessor();
 
         $path = $this->tempDir . '/document.txt';
         file_put_contents($path, 'This is not an image');
@@ -134,11 +136,13 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function returnsSourceForSvgFile(): void
     {
-        $imagine = $this->createMockImagine(100, 100);
-        $processor = $this->createProcessor(1920, 1080, $imagine);
+        $processor = $this->createProcessor();
 
         $path = $this->tempDir . '/image.svg';
-        file_put_contents($path, '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100"/></svg>');
+        file_put_contents(
+            $path,
+            '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100"/></svg>'
+        );
 
         $result = $processor->process($path);
 
@@ -156,13 +160,15 @@ class ImageScalerProcessorTest extends TestCase
 
         $image = $this->createMock(ImageInterface::class);
         $image->method('getSize')->willReturn($size);
-        $image->expects($this->once())->method('resize')->with($this->callback(fn(Box $box) => $box->getWidth() <= 1920 && $box->getHeight() <= 1080));
+        $image->expects($this->once())->method('resize')->with(
+            $this->callback(fn(Box $box) => $box->getWidth() <= 1920 && $box->getHeight() <= 1080)
+        );
         $image->expects($this->once())->method('save');
 
         $imagine = $this->createMock(ImagineInterface::class);
         $imagine->method('open')->willReturn($image);
 
-        $processor = $this->createProcessor(1920, 1080, $imagine);
+        $processor = $this->createProcessor($imagine);
 
         $path = $this->createTestImage(3840, 2160);
         $processor->process($path);
@@ -173,8 +179,7 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function cleansUpTempFileOnSuccess(): void
     {
-        $imagine = $this->createMockImagine(960, 540);
-        $processor = $this->createProcessor(1920, 1080, $imagine);
+        $processor = $this->createProcessor($this->createMockImagine(960, 540));
 
         $path = $this->createTestImage(3840, 2160);
         $processor->process($path);
@@ -192,7 +197,7 @@ class ImageScalerProcessorTest extends TestCase
         $imagine->method('open')
             ->willThrowException(new \RuntimeException('Driver error'));
 
-        $processor = $this->createProcessor(1920, 1080, $imagine);
+        $processor = $this->createProcessor($imagine);
 
         $path = $this->createTestImage(3840, 2160);
         $result = $processor->process($path);
@@ -208,8 +213,7 @@ class ImageScalerProcessorTest extends TestCase
      */
     public function returnsSourceWhenCopyFails(): void
     {
-        $imagine = $this->createMockImagine(100, 100);
-        $processor = $this->createProcessor(1920, 1080, $imagine);
+        $processor = $this->createProcessor();
 
         $nonExistentPath = '/nonexistent/path/image.png';
         $result = $processor->process($nonExistentPath);
