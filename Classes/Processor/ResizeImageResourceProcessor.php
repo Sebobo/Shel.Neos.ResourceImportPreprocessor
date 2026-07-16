@@ -23,16 +23,28 @@ class ResizeImageResourceProcessor implements ResourceProcessorInterface
 
     protected int|null $maxWidth = null;
     protected int|null $maxHeight = null;
+    /** @var array<string, mixed> */
+    protected array $saveOptions = [];
 
     /**
-     * @param array{maxWidth?: int|null, maxHeight?: int|null} $options
+     * @param array{maxWidth?: int|null, maxHeight?: int|null, saveOptions?: array<string, mixed>} $options
      */
     public function setOptions(array $options = []): self
     {
         $this->maxWidth = $options['maxWidth'] ?? null;
         $this->maxHeight = $options['maxHeight'] ?? null;
+        $this->saveOptions = $options['saveOptions'] ?? [];
         return $this;
     }
+
+    private const MIME_TYPE_EXTENSION_MAP = [
+        'image/png' => '.png',
+        'image/jpeg' => '.jpg',
+        'image/gif' => '.gif',
+        'image/webp' => '.webp',
+        'image/avif' => '.avif',
+        'image/bmp' => '.bmp',
+    ];
 
     /**
      * Takes a local path to an image and scales it to the maximum width and height if it exceeds it.
@@ -50,6 +62,15 @@ class ResizeImageResourceProcessor implements ResourceProcessorInterface
         }
 
         try {
+            // Ensure file has an extension so Imagine can determine the save format
+            $extension = pathinfo($path, PATHINFO_EXTENSION);
+            if ($extension === '' && isset(self::MIME_TYPE_EXTENSION_MAP[$mimeType])) {
+                $newPath = $path . self::MIME_TYPE_EXTENSION_MAP[$mimeType];
+                if (rename($path, $newPath)) {
+                    $path = $newPath;
+                }
+            }
+
             $image = $this->imagineService->open($path);
             $size = $image->getSize();
 
@@ -69,8 +90,7 @@ class ResizeImageResourceProcessor implements ResourceProcessorInterface
             $newHeight = (int)round($size->getHeight() * $scaleRatio);
 
             $image->resize(new Box($newWidth, $newHeight));
-            // TODO: Do we need additional options like quality, from configuration?
-            $image->save($path);
+            $image->save($path, $this->saveOptions);
             return $path;
         } catch (\Throwable) {
             return false;

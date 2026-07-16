@@ -220,4 +220,47 @@ class ResizeImageResourceProcessorTest extends TestCase
 
         self::assertSame(false, $result);
     }
+
+    /**
+     * @test
+     */
+    public function passesSaveOptionsToImagine(): void
+    {
+        $size = $this->createMock(BoxInterface::class);
+        $size->method('getWidth')->willReturn(3840);
+        $size->method('getHeight')->willReturn(2160);
+
+        $image = $this->createMock(ImageInterface::class);
+        $image->method('getSize')->willReturn($size);
+        $image->method('resize')->willReturnSelf();
+        $image->expects($this->once())
+            ->method('save')
+            ->with(
+                $this->anything(),
+                $this->equalTo(['quality' => 80, 'png_compression_level' => 9])
+            );
+
+        $imagine = $this->createMock(ImagineInterface::class);
+        $imagine->method('open')->willReturn($image);
+
+        $processor = (new ResizeImageResourceProcessor())
+            ->setOptions([
+                'maxWidth' => 1920,
+                'maxHeight' => 1080,
+                'saveOptions' => ['quality' => 80, 'png_compression_level' => 9],
+            ]);
+
+        $environment = $this->createMock(Environment::class);
+        $environment->method('getPathToTemporaryDirectory')
+            ->willReturn($this->tempDir . '/');
+
+        $reflection = new \ReflectionClass($processor);
+        $prop = $reflection->getProperty('environment');
+        $prop->setValue($processor, $environment);
+        $prop = $reflection->getProperty('imagineService');
+        $prop->setValue($processor, $imagine);
+
+        $path = $this->createTestImage(3840, 2160);
+        $processor->process($path);
+    }
 }

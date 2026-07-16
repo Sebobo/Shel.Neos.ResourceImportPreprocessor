@@ -13,7 +13,7 @@ use Normalizer;
 #[Flow\Proxy(false)]
 final class ReplaceSpecialCharsFilenameProcessor implements FilenameProcessorInterface
 {
-    private string|null $pattern = null;
+    private string $pattern = '';
     private string $replacement = '';
 
     /**
@@ -21,7 +21,7 @@ final class ReplaceSpecialCharsFilenameProcessor implements FilenameProcessorInt
      */
     public function setOptions(array $options = []): self
     {
-        $this->pattern = $options['pattern'] ?? null;
+        $this->pattern = $options['pattern'] ?? '';
         $this->replacement = $options['replacement'] ?? '';
         return $this;
     }
@@ -31,11 +31,11 @@ final class ReplaceSpecialCharsFilenameProcessor implements FilenameProcessorInt
      */
     public function process(string $filename): string
     {
-        if (!$this->pattern || !$filename) {
+        if ($this->pattern === '' || $filename === '') {
             return $filename;
         }
         $processedFilename = Normalizer::normalize($filename, Normalizer::FORM_C);
-        if (!$processedFilename) {
+        if (!is_string($processedFilename) || $processedFilename === '') {
             return $filename;
         }
         $processedFilename = preg_replace($this->pattern, $this->replacement, $processedFilename);
