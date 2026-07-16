@@ -34,6 +34,15 @@ class ResizeImageResourceProcessor implements ResourceProcessorInterface
         return $this;
     }
 
+    private const MIME_TYPE_EXTENSION_MAP = [
+        'image/png' => '.png',
+        'image/jpeg' => '.jpg',
+        'image/gif' => '.gif',
+        'image/webp' => '.webp',
+        'image/avif' => '.avif',
+        'image/bmp' => '.bmp',
+    ];
+
     /**
      * Takes a local path to an image and scales it to the maximum width and height if it exceeds it.
      * @return string|false path to the processed image or false if the process failed
@@ -50,6 +59,15 @@ class ResizeImageResourceProcessor implements ResourceProcessorInterface
         }
 
         try {
+            // Ensure file has an extension so Imagine can determine the save format
+            $extension = pathinfo($path, PATHINFO_EXTENSION);
+            if ($extension === '' && isset(self::MIME_TYPE_EXTENSION_MAP[$mimeType])) {
+                $newPath = $path . self::MIME_TYPE_EXTENSION_MAP[$mimeType];
+                if (rename($path, $newPath)) {
+                    $path = $newPath;
+                }
+            }
+
             $image = $this->imagineService->open($path);
             $size = $image->getSize();
 
