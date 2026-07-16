@@ -23,14 +23,17 @@ class ResizeImageResourceProcessor implements ResourceProcessorInterface
 
     protected int|null $maxWidth = null;
     protected int|null $maxHeight = null;
+    /** @var array<string, mixed> */
+    protected array $saveOptions = [];
 
     /**
-     * @param array{maxWidth?: int|null, maxHeight?: int|null} $options
+     * @param array{maxWidth?: int|null, maxHeight?: int|null, saveOptions?: array<string, mixed>} $options
      */
     public function setOptions(array $options = []): self
     {
         $this->maxWidth = $options['maxWidth'] ?? null;
         $this->maxHeight = $options['maxHeight'] ?? null;
+        $this->saveOptions = $options['saveOptions'] ?? [];
         return $this;
     }
 
@@ -87,8 +90,7 @@ class ResizeImageResourceProcessor implements ResourceProcessorInterface
             $newHeight = (int)round($size->getHeight() * $scaleRatio);
 
             $image->resize(new Box($newWidth, $newHeight));
-            // TODO: Do we need additional options like quality, from configuration?
-            $image->save($path);
+            $image->save($path, $this->saveOptions);
             return $path;
         } catch (\Throwable) {
             return false;

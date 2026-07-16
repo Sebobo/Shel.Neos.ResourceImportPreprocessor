@@ -36,6 +36,9 @@ Shel:
               # Maximum width & height in pixels (images exceeding this will be scaled down, aspect ratio is preserved)
               maxWidth: 1920
               maxHeight: 1920
+              # Options passed to Imagine's save() method (e.g. JPEG quality, PNG compression)
+              saveOptions:
+                quality: 85
 ```
 
 ### Available processors
@@ -53,10 +56,37 @@ Replaces special characters in filenames using a regex pattern. Useful to ensure
 
 Scales images down if they exceed the configured maximum dimensions. SVG images are skipped. Aspect ratio is always preserved.
 
-| Option      | Type  | Description              |
-|-------------|-------|--------------------------|
-| `maxWidth`  | `int` | Maximum width in pixels  |
-| `maxHeight` | `int` | Maximum height in pixels |
+| Option        | Type               | Description                                                    |
+|---------------|--------------------|----------------------------------------------------------------|
+| `maxWidth`    | `int`              | Maximum width in pixels                                        |
+| `maxHeight`   | `int`              | Maximum height in pixels                                       |
+| `saveOptions` | `array<string,mixed>` | Options passed to Imagine's `save()` method (see below)     |
+
+The `saveOptions` are passed directly to [Imagine's save method](https://imagine.readthedocs.io/en/latest/usage/introduction.html#saving-images). Common options:
+
+| Option                    | Type    | Supported by          | Description                               |
+|---------------------------|---------|-----------------------|-------------------------------------------|
+| `quality`                 | `int`   | JPEG, WebP, AVIF      | Image quality (0–100)                     |
+| `png_compression_level`   | `int`   | PNG                   | Compression level (0–9, default: 6)      |
+| `jpeg_sampling_factor`    | `string`| JPEG                  | Chroma subsampling (e.g. `'4:2:0'`)      |
+
+Example with custom save options:
+
+```yaml
+Shel:
+  Neos:
+    ResourceImportPreprocessor:
+      processResources:
+        processors:
+          'resizeImages':
+            class: 'Shel\Neos\ResourceImportPreprocessor\Processor\ResizeImageResourceProcessor'
+            options:
+              maxWidth: 1920
+              maxHeight: 1920
+              saveOptions:
+                quality: 85
+                png_compression_level: 9
+```
 
 ### Custom processors
 

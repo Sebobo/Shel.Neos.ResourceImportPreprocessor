@@ -19,3 +19,5 @@ Shel:
               # Scales all uploaded images to these dimensions (in px) but keeps the aspect ratio
               maxWidth: 1920
               maxHeight: 1920
+              # Options passed to Imagine's save() method (e.g. JPEG quality, PNG compression)
+              saveOptions: {}
