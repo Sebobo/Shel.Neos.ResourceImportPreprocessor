@@ -82,8 +82,13 @@ class ImportResourceAspect
             $processedResourcePath = $this->processResourceSource($source);
             if ($processedResourcePath !== false) {
                 $joinPoint->setMethodArgument('source', $processedResourcePath);
-                // Store the processed resource path to clean up later
-                $this->processedResourcePaths[$processedResourcePath] = true;
+                // Clean up temporary files
+                if (is_file($source)) {
+                    $this->processedResourcePaths[$source] = true;
+                }
+                if ($processedResourcePath !== $source) {
+                    $this->processedResourcePaths[$processedResourcePath] = true;
+                }
             }
         } catch (\Throwable) {
             // Processing failed — import the original resource unchanged

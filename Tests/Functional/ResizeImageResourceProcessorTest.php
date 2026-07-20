@@ -5,13 +5,10 @@ declare(strict_types=1);
 namespace Shel\Neos\ResourceImportPreprocessor\Tests\Functional;
 
 use Imagine\Gd\Imagine;
-use Neos\Flow\Utility\Environment;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Shel\Neos\ResourceImportPreprocessor\Processor\ResizeImageResourceProcessor;
 
-/**
- *
- */
 class ResizeImageResourceProcessorTest extends TestCase
 {
     private string $tempDir;
@@ -37,17 +34,20 @@ class ResizeImageResourceProcessorTest extends TestCase
     private function createProcessor(int $maxWidth = 1920, int $maxHeight = 1080): ResizeImageResourceProcessor
     {
         $processor = (new ResizeImageResourceProcessor())
-            ->setOptions(['maxWidth' => $maxWidth, 'maxHeight' => $maxHeight]);
-
-        $environment = $this->createMock(Environment::class);
-        $environment->method('getPathToTemporaryDirectory')
-            ->willReturn($this->tempDir . '/');
+            ->setOptions([
+                'maxWidth' => $maxWidth,
+                'maxHeight' => $maxHeight,
+                'allowedMimeTypes' => ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+            ]);
 
         $reflection = new \ReflectionClass($processor);
-        $prop = $reflection->getProperty('environment');
-        $prop->setValue($processor, $environment);
+
+        // Use GD Imagine for tests since vips might not be available in test environment
         $prop = $reflection->getProperty('imagineService');
         $prop->setValue($processor, new Imagine());
+
+        $prop = $reflection->getProperty('systemLogger');
+        $prop->setValue($processor, new NullLogger());
 
         return $processor;
     }
@@ -201,5 +201,32 @@ class ResizeImageResourceProcessorTest extends TestCase
 
         self::assertSame(100, $dims['width']);
         self::assertSame(100, $dims['height']);
+    }
+
+    /**
+     * @test
+     */
+    public function respectsAllowedMimeTypesConfiguration(): void
+    {
+        $processor = (new ResizeImageResourceProcessor())
+            ->setOptions([
+                'maxWidth' => 1920,
+                'maxHeight' => 1080,
+                'allowedMimeTypes' => ['image/jpeg'],
+            ]);
+
+        $reflection = new \ReflectionClass($processor);
+
+        $prop = $reflection->getProperty('imagineService');
+        $prop->setValue($processor, new Imagine());
+
+        $prop = $reflection->getProperty('systemLogger');
+        $prop->setValue($processor, new NullLogger());
+
+        $path = $this->createPngImage(3840, 2160);
+        $result = $processor->process($path);
+
+        // PNG is not in allowedMimeTypes, so image should be returned unchanged
+        self::assertSame($path, $result);
     }
 }
