@@ -90,10 +90,10 @@ class ImportResourceAspectTest extends TestCase
                 $instance = new $class();
                 if ($instance instanceof ResizeImageResourceProcessor) {
                     $reflection = new \ReflectionClass($instance);
-                    $prop = $reflection->getProperty('environment');
-                    $prop->setValue($instance, $environment);
                     $prop = $reflection->getProperty('imagineService');
                     $prop->setValue($instance, new Imagine());
+                    $prop = $reflection->getProperty('systemLogger');
+                    $prop->setValue($instance, new \Psr\Log\NullLogger());
                 }
                 return $instance;
             });
@@ -261,7 +261,11 @@ class ImportResourceAspectTest extends TestCase
         $aspect = $this->createResourceAspect([
             'resize' => [
                 'class' => ResizeImageResourceProcessor::class,
-                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080],
+                'options' => [
+                    'maxWidth' => 1920,
+                    'maxHeight' => 1080,
+                    'allowedMimeTypes' => ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+                ],
             ],
         ]);
 
@@ -278,7 +282,7 @@ class ImportResourceAspectTest extends TestCase
         $aspect = $this->createResourceAspect([
             'resize' => [
                 'class' => ResizeImageResourceProcessor::class,
-                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080],
+                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080, 'allowedMimeTypes' => ['image/png', 'image/jpeg', 'image/gif', 'image/webp']],
             ],
         ]);
 
@@ -300,7 +304,7 @@ class ImportResourceAspectTest extends TestCase
         $aspect = $this->createResourceAspect([
             'resize' => [
                 'class' => ResizeImageResourceProcessor::class,
-                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080],
+                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080, 'allowedMimeTypes' => ['image/png', 'image/jpeg', 'image/gif', 'image/webp']],
             ],
         ]);
 
@@ -318,7 +322,7 @@ class ImportResourceAspectTest extends TestCase
         $aspect = $this->createResourceAspect([
             'resize' => [
                 'class' => ResizeImageResourceProcessor::class,
-                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080],
+                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080, 'allowedMimeTypes' => ['image/png', 'image/jpeg', 'image/gif', 'image/webp']],
             ],
         ]);
 
@@ -338,7 +342,7 @@ class ImportResourceAspectTest extends TestCase
         $aspect = $this->createResourceAspect([
             'resize' => [
                 'class' => ResizeImageResourceProcessor::class,
-                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080],
+                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080, 'allowedMimeTypes' => ['image/png', 'image/jpeg', 'image/gif', 'image/webp']],
             ],
         ]);
 
@@ -363,7 +367,7 @@ class ImportResourceAspectTest extends TestCase
         $aspect = $this->createResourceAspect([
             'resize' => [
                 'class' => ResizeImageResourceProcessor::class,
-                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080],
+                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080, 'allowedMimeTypes' => ['image/png', 'image/jpeg', 'image/gif', 'image/webp']],
             ],
         ]);
 
@@ -383,7 +387,7 @@ class ImportResourceAspectTest extends TestCase
         $aspect = $this->createResourceAspect([
             'resize' => [
                 'class' => ResizeImageResourceProcessor::class,
-                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080],
+                'options' => ['maxWidth' => 1920, 'maxHeight' => 1080, 'allowedMimeTypes' => ['image/png', 'image/jpeg', 'image/gif', 'image/webp']],
             ],
         ]);
 

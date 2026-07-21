@@ -82,8 +82,6 @@ class ImportResourceAspect
             $processedResourcePath = $this->processResourceSource($source);
             if ($processedResourcePath !== false) {
                 $joinPoint->setMethodArgument('source', $processedResourcePath);
-                // Store the processed resource path to clean up later
-                $this->processedResourcePaths[$processedResourcePath] = true;
             }
         } catch (\Throwable) {
             // Processing failed — import the original resource unchanged
@@ -93,12 +91,13 @@ class ImportResourceAspect
         return $result;
     }
 
-    #[Flow\After('setting(Shel.Neos.ResourceImportPreprocessor.processResources.enabled) && method(Neos\Flow\ResourceManagement\ResourceManager->importUploadedResource())')]
-    public function processResourceAfterImport(): void
+    public function shutdownObject(): void
     {
         // Clean up temporary files
         foreach (array_keys($this->processedResourcePaths) as $processedResourcePath) {
-            @unlink($processedResourcePath);
+            if (is_file($processedResourcePath)) {
+                @unlink($processedResourcePath);
+            }
         }
     }
 
@@ -186,10 +185,15 @@ class ImportResourceAspect
             return false;
         }
 
+        // Store path for cleanup
+        $this->processedResourcePaths[$pathToProcess] = true;
+
         // Execute each processor
         foreach ($processorInstances as $processor) {
             $result = $processor->process($pathToProcess);
             if ($result !== false) {
+                // Store possible new path for cleanup
+                $this->processedResourcePaths[$result] = true;
                 $pathToProcess = $result;
             }
         }

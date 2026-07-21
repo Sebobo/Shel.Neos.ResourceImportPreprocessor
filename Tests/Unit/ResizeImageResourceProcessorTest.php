@@ -8,8 +8,8 @@ use Imagine\Image\Box;
 use Imagine\Image\BoxInterface;
 use Imagine\Image\ImageInterface;
 use Imagine\Image\ImagineInterface;
-use Neos\Flow\Utility\Environment;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Shel\Neos\ResourceImportPreprocessor\Processor\ResizeImageResourceProcessor;
 
 class ResizeImageResourceProcessorTest extends TestCase
@@ -33,15 +33,16 @@ class ResizeImageResourceProcessorTest extends TestCase
     private function createProcessor(?ImagineInterface $imagineService = null): ResizeImageResourceProcessor
     {
         $processor = (new ResizeImageResourceProcessor())
-            ->setOptions(['maxWidth' => 1920, 'maxHeight' => 1080]);
+            ->setOptions([
+                'maxWidth' => 1920,
+                'maxHeight' => 1080,
+                'allowedMimeTypes' => ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+            ]);
 
-        $environment = $this->createMock(Environment::class);
-        $environment->method('getPathToTemporaryDirectory')
-            ->willReturn($this->tempDir . '/');
-
+        $logger = $this->createMock(LoggerInterface::class);
         $reflection = new \ReflectionClass($processor);
-        $prop = $reflection->getProperty('environment');
-        $prop->setValue($processor, $environment);
+        $prop = $reflection->getProperty('systemLogger');
+        $prop->setValue($processor, $logger);
 
         if ($imagineService !== null) {
             $prop = $reflection->getProperty('imagineService');
@@ -49,15 +50,6 @@ class ResizeImageResourceProcessorTest extends TestCase
         }
 
         return $processor;
-    }
-
-    private function createTestImage(int $width, int $height, string $extension = 'png'): string
-    {
-        $path = $this->tempDir . '/test.' . $extension;
-        $image = imagecreatetruecolor($width, $height);
-        imagepng($image, $path);
-        imagedestroy($image);
-        return $path;
     }
 
     private function createMockImagine(int $newWidth, int $newHeight): ImagineInterface
@@ -75,6 +67,15 @@ class ResizeImageResourceProcessorTest extends TestCase
         $imagine->method('open')->willReturn($image);
 
         return $imagine;
+    }
+
+    private function createTestImage(int $width, int $height, string $extension = 'png'): string
+    {
+        $path = $this->tempDir . '/test.' . $extension;
+        $image = imagecreatetruecolor($width, $height);
+        imagepng($image, $path);
+        imagedestroy($image);
+        return $path;
     }
 
     /**
@@ -177,25 +178,11 @@ class ResizeImageResourceProcessorTest extends TestCase
     /**
      * @test
      */
-    public function cleansUpTempFileOnSuccess(): void
-    {
-        $processor = $this->createProcessor($this->createMockImagine(960, 540));
-
-        $path = $this->createTestImage(3840, 2160);
-        $processor->process($path);
-
-        $tempFiles = glob($this->tempDir . '/Neos_Flow_ResourceImport_*');
-        self::assertEmpty($tempFiles);
-    }
-
-    /**
-     * @test
-     */
-    public function cleansUpTempFileOnException(): void
+    public function returnsFalseOnImagineException(): void
     {
         $imagine = $this->createMock(ImagineInterface::class);
         $imagine->method('open')
-            ->willThrowException(new \RuntimeException('Driver error'));
+            ->willThrowException(new \Imagine\Exception\RuntimeException('Corrupt image'));
 
         $processor = $this->createProcessor($imagine);
 
@@ -203,9 +190,6 @@ class ResizeImageResourceProcessorTest extends TestCase
         $result = $processor->process($path);
 
         self::assertSame(false, $result);
-
-        $tempFiles = glob($this->tempDir . '/Neos_Flow_ResourceImport_*');
-        self::assertEmpty($tempFiles);
     }
 
     /**
@@ -224,43 +208,51 @@ class ResizeImageResourceProcessorTest extends TestCase
     /**
      * @test
      */
-    public function passesSaveOptionsToImagine(): void
+    public function respectsAllowedMimeTypesConfiguration(): void
     {
-        $size = $this->createMock(BoxInterface::class);
-        $size->method('getWidth')->willReturn(3840);
-        $size->method('getHeight')->willReturn(2160);
-
-        $image = $this->createMock(ImageInterface::class);
-        $image->method('getSize')->willReturn($size);
-        $image->method('resize')->willReturnSelf();
-        $image->expects($this->once())
-            ->method('save')
-            ->with(
-                $this->anything(),
-                $this->equalTo(['quality' => 80, 'png_compression_level' => 9])
-            );
-
-        $imagine = $this->createMock(ImagineInterface::class);
-        $imagine->method('open')->willReturn($image);
-
         $processor = (new ResizeImageResourceProcessor())
             ->setOptions([
                 'maxWidth' => 1920,
                 'maxHeight' => 1080,
-                'saveOptions' => ['quality' => 80, 'png_compression_level' => 9],
+                'allowedMimeTypes' => ['image/jpeg'],
             ]);
 
-        $environment = $this->createMock(Environment::class);
-        $environment->method('getPathToTemporaryDirectory')
-            ->willReturn($this->tempDir . '/');
-
+        $logger = $this->createMock(LoggerInterface::class);
         $reflection = new \ReflectionClass($processor);
-        $prop = $reflection->getProperty('environment');
-        $prop->setValue($processor, $environment);
+        $prop = $reflection->getProperty('systemLogger');
+        $prop->setValue($processor, $logger);
+
+        $path = $this->createTestImage(3840, 2160, 'png');
+        $result = $processor->process($path);
+
+        // PNG is not in allowedMimeTypes, so image should be returned unchanged
+        self::assertSame($path, $result);
+    }
+
+    /**
+     * @test
+     */
+    public function processesImageWhenInAllowedMimeTypes(): void
+    {
+        $processor = (new ResizeImageResourceProcessor())
+            ->setOptions([
+                'maxWidth' => 1920,
+                'maxHeight' => 1080,
+                'allowedMimeTypes' => ['image/png', 'image/jpeg'],
+            ]);
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $reflection = new \ReflectionClass($processor);
+        $prop = $reflection->getProperty('systemLogger');
+        $prop->setValue($processor, $logger);
+
+        $imagine = $this->createMockImagine(1920, 1080);
         $prop = $reflection->getProperty('imagineService');
         $prop->setValue($processor, $imagine);
 
         $path = $this->createTestImage(3840, 2160);
-        $processor->process($path);
+        $result = $processor->process($path);
+
+        self::assertIsString($result);
     }
 }

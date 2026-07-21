@@ -20,4 +20,13 @@ Shel:
               maxWidth: 1920
               maxHeight: 1920
               # Options passed to Imagine's save() method (e.g. JPEG quality, PNG compression)
-              saveOptions: {}
+              saveOptions:
+                quality: 90
+              # MIME types this processor will handle. Images with other types are returned unchanged.
+              allowedMimeTypes:
+                - 'image/jpeg'
+                - 'image/png'
+                - 'image/gif'
+                - 'image/webp'
+                - 'image/avif'
+                - 'image/bmp'

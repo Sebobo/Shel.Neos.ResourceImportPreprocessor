@@ -38,7 +38,7 @@ Shel:
               maxHeight: 1920
               # Options passed to Imagine's save() method (e.g. JPEG quality, PNG compression)
               saveOptions:
-                quality: 85
+                quality: 90
 ```
 
 ### Available processors
@@ -56,11 +56,16 @@ Replaces special characters in filenames using a regex pattern. Useful to ensure
 
 Scales images down if they exceed the configured maximum dimensions. SVG images are skipped. Aspect ratio is always preserved.
 
-| Option        | Type               | Description                                                    |
-|---------------|--------------------|----------------------------------------------------------------|
-| `maxWidth`    | `int`              | Maximum width in pixels                                        |
-| `maxHeight`   | `int`              | Maximum height in pixels                                       |
-| `saveOptions` | `array<string,mixed>` | Options passed to Imagine's `save()` method (see below)     |
+| Option            | Type               | Description                                                                 |
+|-------------------|--------------------|-----------------------------------------------------------------------------|
+| `maxWidth`        | `int`              | Maximum width in pixels                                                     |
+| `maxHeight`       | `int`              | Maximum height in pixels                                                    |
+| `saveOptions`     | `array<string,mixed>` | Options passed to Imagine's `save()` method (see below)                  |
+| `allowedMimeTypes`| `list<string>`     | MIME types to process (default: `['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/bmp']`) |
+
+The `allowedMimeTypes` option lets you restrict which image formats are processed. Any image whose MIME type is not in this list will be skipped and returned unchanged. This is useful if you only want to resize certain formats or want to avoid processing formats that might cause issues.
+
+The processor uses the Imagine library with the vips driver and passes `unlimited: true` and `fail_on: none` options to vips when loading images. This allows it to gracefully handle truncated or corrupted images without crashing the PHP-FPM worker.
 
 The `saveOptions` are passed directly to [Imagine's save method](https://imagine.readthedocs.io/en/latest/usage/introduction.html#saving-images). Common options:
 
@@ -87,6 +92,26 @@ Shel:
                 quality: 85
                 png_compression_level: 9
 ```
+
+Example restricting to JPEG and PNG only:
+
+```yaml
+Shel:
+  Neos:
+    ResourceImportPreprocessor:
+      processResources:
+        processors:
+          'resizeImages':
+            class: 'Shel\Neos\ResourceImportPreprocessor\Processor\ResizeImageResourceProcessor'
+            options:
+              maxWidth: 1920
+              maxHeight: 1920
+              allowedMimeTypes:
+                - 'image/jpeg'
+                - 'image/png'
+```
+
+Note: When using the vips driver, AVIF files are supported if your vips installation has AVIF support. The `allowedMimeTypes` list includes `image/avif` by default.
 
 ### Custom processors
 
